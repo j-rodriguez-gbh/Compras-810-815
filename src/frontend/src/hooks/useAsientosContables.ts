@@ -10,8 +10,6 @@ export const useAsientosContables = (filters?: {
   fechaHasta?: string
   tipoMovimiento?: string
 }) => {
-  const queryClient = useQueryClient()
-
   const queryParams = new URLSearchParams()
   if (filters?.estado) queryParams.append('estado', filters.estado)
   if (filters?.ordenCompraId) queryParams.append('ordenCompraId', filters.ordenCompraId.toString())

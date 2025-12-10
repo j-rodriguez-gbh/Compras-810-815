@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
-import { LoginRequest, RegisterRequest, AuthResponse, Usuario } from '../types'
+import { LoginRequest, RegisterRequest, AuthResponse, Usuario, ApiResponse } from '../types'
 import toast from 'react-hot-toast'
 
 const AUTH_KEY = 'auth'
@@ -36,7 +36,7 @@ export const useAuth = () => {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginRequest) => {
-      const response = await api.post<AuthResponse>('/auth/login', credentials)
+      const response = await api.post<ApiResponse<AuthResponse>>('/auth/login', credentials)
       return response.data.data
     },
     onSuccess: (data) => {
@@ -53,7 +53,7 @@ export const useAuth = () => {
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterRequest) => {
-      const response = await api.post<AuthResponse>('/auth/register', data)
+      const response = await api.post<ApiResponse<AuthResponse>>('/auth/register', data)
       return response.data.data
     },
     onSuccess: (data) => {
@@ -71,7 +71,7 @@ export const useAuth = () => {
   const { data: currentUser } = useQuery({
     queryKey: [AUTH_KEY],
     queryFn: async () => {
-      const response = await api.get<Usuario>('/auth/me')
+      const response = await api.get<ApiResponse<Usuario>>('/auth/me')
       return response.data.data
     },
     enabled: !!getStoredToken(),

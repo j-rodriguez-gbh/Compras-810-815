@@ -36,7 +36,7 @@ export default function ConsultasPage() {
   const handleSearch = () => {
     const criteriosFiltrados = Object.fromEntries(
       Object.entries(criterios).filter(([_, value]) => value !== '')
-    )
+    ) as typeof criterios
     setCriterios(criteriosFiltrados)
     refetch()
   }
