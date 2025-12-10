@@ -463,10 +463,12 @@ class ContabilidadService {
   /**
    * Obtiene asientos contables del sistema externo
    * @param {Object} filters - Filtros opcionales para la consulta
-   * @param {string} filters.fechaDesde - Fecha desde (formato YYYY-MM-DD)
-   * @param {string} filters.fechaHasta - Fecha hasta (formato YYYY-MM-DD)
+   * @param {string} filters.startDate - Fecha desde (formato YYYY-MM-DD) - rango inclusivo
+   * @param {string} filters.endDate - Fecha hasta (formato YYYY-MM-DD) - rango inclusivo
+   * @param {string} filters.entryDate - Fecha exacta (formato YYYY-MM-DD)
    * @param {number} filters.accountId - ID de cuenta contable
    * @param {string} filters.movementType - Tipo de movimiento (DB/CR)
+   * @param {number} filters.auxiliaryId - ID de sistema auxiliar (opcional, se aplica automáticamente según token)
    * @returns {Promise<Array>} Array de asientos contables del sistema externo
    */
   async obtenerAsientosExternos(filters = {}) {
@@ -481,18 +483,29 @@ class ContabilidadService {
       const apiUrl = `${config.contabilidadApiUrl}/api/v1/accounting-entries`;
       const params = {};
 
-      // Agregar filtros opcionales
-      if (filters.fechaDesde) {
-        params.entryDateFrom = filters.fechaDesde;
+      // Agregar filtros opcionales según la documentación del API
+      // startDate / endDate: filtra por rango inclusivo
+      if (filters.startDate) {
+        params.startDate = filters.startDate;
       }
-      if (filters.fechaHasta) {
-        params.entryDateTo = filters.fechaHasta;
+      if (filters.endDate) {
+        params.endDate = filters.endDate;
       }
+      // entryDate: coincide exactamente una fecha (tiene prioridad sobre startDate/endDate si ambos están presentes)
+      if (filters.entryDate) {
+        params.entryDate = filters.entryDate;
+      }
+      // accountId: filtra por identificador de cuenta
       if (filters.accountId) {
         params.accountId = parseInt(filters.accountId);
       }
+      // movementType: DB o CR
       if (filters.movementType) {
         params.movementType = filters.movementType;
+      }
+      // auxiliaryId: restringe a un sistema auxiliar específico (se aplica automáticamente según el token, pero puede especificarse)
+      if (filters.auxiliaryId) {
+        params.auxiliaryId = parseInt(filters.auxiliaryId);
       }
 
       const response = await axios.get(apiUrl, {
@@ -518,6 +531,13 @@ class ContabilidadService {
       } else {
         throw new Error('Formato de respuesta inesperado del sistema de contabilidad');
       }
+
+      // Ordenar por ID de forma descendente (más recientes primero)
+      asientos.sort((a, b) => {
+        const idA = a.id || 0;
+        const idB = b.id || 0;
+        return idB - idA; // Orden descendente
+      });
 
       return asientos;
     } catch (error) {

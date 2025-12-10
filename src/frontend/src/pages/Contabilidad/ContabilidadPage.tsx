@@ -7,13 +7,26 @@ export default function ContabilidadPage() {
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+  
+  // Filtros para asientos externos
+  const [filtroEntryDate, setFiltroEntryDate] = useState('')
+  const [filtroAccountId, setFiltroAccountId] = useState('')
+  const [filtroMovementType, setFiltroMovementType] = useState<'DB' | 'CR' | ''>('')
 
   const { transacciones, isLoading, refetch } = useTransaccionesPendientes(
     fechaDesde || undefined,
     fechaHasta || undefined
   )
   const { asientos: asientosExternos, isLoading: isLoadingExternos } = useAsientosExternos(
-    activeTab === 'externos' ? { fechaDesde: fechaDesde || undefined, fechaHasta: fechaHasta || undefined } : undefined
+    activeTab === 'externos' 
+      ? { 
+          startDate: fechaDesde && fechaDesde.trim() !== '' ? fechaDesde : undefined,
+          endDate: fechaHasta && fechaHasta.trim() !== '' ? fechaHasta : undefined,
+          entryDate: filtroEntryDate && filtroEntryDate.trim() !== '' ? filtroEntryDate : undefined,
+          accountId: filtroAccountId && filtroAccountId.trim() !== '' ? parseInt(filtroAccountId) : undefined,
+          movementType: filtroMovementType || undefined,
+        } 
+      : undefined
   )
   const contabilizarMutation = useContabilizarAsiento()
 
@@ -42,11 +55,41 @@ export default function ContabilidadPage() {
     }
 
     try {
-      const promises = selectedIds.map((id) => contabilizarMutation.mutateAsync(id))
+      // Agrupar asientos por ordenCompraId para evitar procesar la misma orden múltiples veces
+      const asientosSeleccionados = transacciones.filter(t => selectedIds.includes(t.id))
+      const ordenesUnicas = new Set<number>()
+      const asientosAProcesar: number[] = []
+
+      // Solo procesar un asiento por cada orden de compra
+      for (const asiento of asientosSeleccionados) {
+        if (asiento.ordenCompraId && !ordenesUnicas.has(asiento.ordenCompraId)) {
+          ordenesUnicas.add(asiento.ordenCompraId)
+          asientosAProcesar.push(asiento.id)
+        } else if (!asiento.ordenCompraId) {
+          // Si no tiene ordenCompraId, procesarlo individualmente
+          asientosAProcesar.push(asiento.id)
+        }
+      }
+
+      if (asientosAProcesar.length === 0) {
+        toast.error('No hay asientos válidos para contabilizar')
+        return
+      }
+
+      // Si hay asientos duplicados de la misma orden, informar al usuario
+      if (asientosAProcesar.length < selectedIds.length) {
+        const duplicados = selectedIds.length - asientosAProcesar.length
+        toast(`${duplicados} asiento(s) de órdenes ya seleccionadas fueron omitidos`, {
+          icon: 'ℹ️',
+          duration: 3000,
+        })
+      }
+
+      const promises = asientosAProcesar.map((id) => contabilizarMutation.mutateAsync(id))
       await Promise.all(promises)
       setSelectedIds([])
       refetch()
-      toast.success(`${selectedIds.length} transacción(es) contabilizada(s) exitosamente`)
+      toast.success(`${asientosAProcesar.length} transacción(es) contabilizada(s) exitosamente`)
     } catch (error) {
       console.error('Error al contabilizar:', error)
     }
@@ -138,6 +181,72 @@ export default function ContabilidadPage() {
             </div>
           </div>
 
+          {activeTab === 'externos' && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 border-t pt-4">
+                <div>
+                  <label htmlFor="filtroEntryDate" className="block text-sm font-medium text-gray-700 mb-2">
+                    Fecha Exacta (opcional):
+                  </label>
+                  <input
+                    type="date"
+                    id="filtroEntryDate"
+                    value={filtroEntryDate}
+                    onChange={(e) => setFiltroEntryDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    data-testid="filtro-entry-date-input"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Si se especifica, ignora el rango de fechas</p>
+                </div>
+                <div>
+                  <label htmlFor="filtroAccountId" className="block text-sm font-medium text-gray-700 mb-2">
+                    ID de Cuenta:
+                  </label>
+                  <input
+                    type="number"
+                    id="filtroAccountId"
+                    value={filtroAccountId}
+                    onChange={(e) => setFiltroAccountId(e.target.value)}
+                    placeholder="Ej: 80, 82"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    data-testid="filtro-account-id-input"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="filtroMovementType" className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipo de Movimiento:
+                  </label>
+                  <select
+                    id="filtroMovementType"
+                    value={filtroMovementType}
+                    onChange={(e) => setFiltroMovementType(e.target.value as 'DB' | 'CR' | '')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    data-testid="filtro-movement-type-select"
+                  >
+                    <option value="">Todos</option>
+                    <option value="DB">Débito (DB)</option>
+                    <option value="CR">Crédito (CR)</option>
+                  </select>
+                </div>
+              </div>
+              {(filtroEntryDate || filtroAccountId || filtroMovementType) && (
+                <div className="mb-4 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setFiltroEntryDate('')
+                      setFiltroAccountId('')
+                      setFiltroMovementType('')
+                    }}
+                    className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    data-testid="limpiar-filtros-button"
+                  >
+                    Limpiar Filtros
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
         {activeTab === 'pendientes' && (
             <>
               {isLoading ? (
@@ -152,10 +261,10 @@ export default function ContabilidadPage() {
               ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                         <input
                           type="checkbox"
                           checked={selectedIds.length === transacciones.length && transacciones.length > 0}
@@ -164,25 +273,25 @@ export default function ContabilidadPage() {
                           data-testid="select-all-checkbox"
                         />
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Id. Transaccion
+                      <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        ID
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Descripcion
+                      <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        Descripción
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Fecha Transacciones
+                      <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        Fecha
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                         Monto
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Id. Asiento
+                      <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        Asiento
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tipo Movimiento
+                      <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        Tipo
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                         Estado
                       </th>
                     </tr>
@@ -193,7 +302,7 @@ export default function ContabilidadPage() {
                         key={transaccion.id}
                         className={selectedIds.includes(transaccion.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 py-2 whitespace-nowrap">
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(transaccion.id)}
@@ -202,49 +311,51 @@ export default function ContabilidadPage() {
                             data-testid={`select-checkbox-${transaccion.id}`}
                           />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
                           {transaccion.id}
                         </td>
-                        <td className="px-6 py-4 max-w-xs text-sm text-gray-500">
+                        <td className="px-2 py-2 max-w-[200px] text-sm text-gray-500">
                           <div className="truncate" title={transaccion.descripcion || 'N/A'}>
                             {transaccion.descripcion || 'N/A'}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(transaccion.fechaAsiento)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                        <td className="px-2 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {formatCurrency(parseFloat(transaccion.montoAsiento.toString()))}
                         </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {transaccion.identificadorAsiento || 'null'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            transaccion.tipoMovimiento === 'DB'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {transaccion.tipoMovimiento}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            transaccion.estado === 'Pendiente'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : transaccion.estado === 'Error'
-                              ? 'bg-red-100 text-red-800'
-                              : transaccion.estado === 'Confirmado'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {transaccion.estado}
-                        </span>
-                      </td>
+                        <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-500">
+                          <div className="truncate max-w-[100px]" title={transaccion.identificadorAsiento || 'null'}>
+                            {transaccion.identificadorAsiento || 'null'}
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 whitespace-nowrap">
+                          <span
+                            className={`px-1.5 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full ${
+                              transaccion.tipoMovimiento === 'DB'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {transaccion.tipoMovimiento}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 whitespace-nowrap">
+                          <span
+                            className={`px-1.5 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full ${
+                              transaccion.estado === 'Pendiente'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : transaccion.estado === 'Error'
+                                ? 'bg-red-100 text-red-800'
+                                : transaccion.estado === 'Confirmado'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {transaccion.estado}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

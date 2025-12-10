@@ -101,13 +101,18 @@ class AsientoContableController {
 
   async getAsientosExternos(req, res, next) {
     try {
-      const { fechaDesde, fechaHasta, accountId, movementType } = req.query;
+      const { startDate, endDate, entryDate, accountId, movementType, auxiliaryId } = req.query;
       
       const filters = {};
-      if (fechaDesde) filters.fechaDesde = fechaDesde;
-      if (fechaHasta) filters.fechaHasta = fechaHasta;
+      // Rango de fechas (startDate/endDate)
+      if (startDate) filters.startDate = startDate;
+      if (endDate) filters.endDate = endDate;
+      // Fecha exacta (entryDate) - tiene prioridad sobre startDate/endDate
+      if (entryDate) filters.entryDate = entryDate;
+      // Filtros adicionales
       if (accountId) filters.accountId = accountId;
       if (movementType) filters.movementType = movementType;
+      if (auxiliaryId) filters.auxiliaryId = auxiliaryId;
 
       const asientos = await ContabilidadService.obtenerAsientosExternos(filters);
       res.json({

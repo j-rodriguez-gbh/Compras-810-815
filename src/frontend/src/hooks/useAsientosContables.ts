@@ -98,16 +98,33 @@ export const useGenerarAsientosDesdeOrden = () => {
 }
 
 export const useAsientosExternos = (filters?: {
-  fechaDesde?: string
-  fechaHasta?: string
+  startDate?: string
+  endDate?: string
+  entryDate?: string
   accountId?: number
   movementType?: 'DB' | 'CR'
+  auxiliaryId?: number
 }) => {
   const queryParams = new URLSearchParams()
-  if (filters?.fechaDesde) queryParams.append('fechaDesde', filters.fechaDesde)
-  if (filters?.fechaHasta) queryParams.append('fechaHasta', filters.fechaHasta)
-  if (filters?.accountId) queryParams.append('accountId', filters.accountId.toString())
-  if (filters?.movementType) queryParams.append('movementType', filters.movementType)
+  // Solo agregar parámetros si tienen valor (no undefined ni string vacío)
+  if (filters?.startDate && filters.startDate.trim() !== '') {
+    queryParams.append('startDate', filters.startDate)
+  }
+  if (filters?.endDate && filters.endDate.trim() !== '') {
+    queryParams.append('endDate', filters.endDate)
+  }
+  if (filters?.entryDate && filters.entryDate.trim() !== '') {
+    queryParams.append('entryDate', filters.entryDate)
+  }
+  if (filters?.accountId) {
+    queryParams.append('accountId', filters.accountId.toString())
+  }
+  if (filters?.movementType) {
+    queryParams.append('movementType', filters.movementType)
+  }
+  if (filters?.auxiliaryId) {
+    queryParams.append('auxiliaryId', filters.auxiliaryId.toString())
+  }
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['asientosExternos', filters],
@@ -117,6 +134,7 @@ export const useAsientosExternos = (filters?: {
       return response.data.data
     },
     retry: 2,
+    enabled: filters !== undefined, // Solo ejecutar si filters está definido (cuando está en la pestaña externos)
   })
 
   return {
