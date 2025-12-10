@@ -137,21 +137,4 @@ export interface AsientoContableExterno {
   transactionStatus: string
 }
 
-export interface SincronizacionResultado {
-  asientosLocales: number
-  asientosExternos: number
-  sincronizados: number
-  discrepancias: number
-  detalles: {
-    sincronizados: Array<{
-      local: AsientoContable
-      externo: AsientoContableExterno
-      sincronizado: boolean
-    }>
-    discrepancias: Array<{
-      local: AsientoContable
-      tipo: string
-    }>
-  }
-}
 

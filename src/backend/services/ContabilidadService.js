@@ -171,9 +171,8 @@ class ContabilidadService {
         Object.assign(asiento, asientoActualizado);
       }
 
-      // Marcar como enviado antes de procesar
-      await asiento.update({ estado: 'Enviado' });
-
+      // NO marcar como "Enviado" todavía - primero validar que podemos enviar
+      // El método enviarAsientoContable se encargará de marcar como "Enviado" cuando realmente los envíe
       const resultado = await this.enviarAsientoContable(asiento);
 
       if (resultado.success) {
@@ -226,27 +225,16 @@ class ContabilidadService {
   }
 
   async enviarAsientoContable(asiento) {
-    // Obtener token de autenticación (usa cache si existe)
-    let token;
-    try {
-      token = await this.obtenerTokenContabilidad();
-    } catch (error) {
-      await asiento.update({ estado: 'Error' });
-      return {
-        success: false,
-        message: error.message || 'Error al autenticarse con el sistema de contabilidad',
-      };
-    }
-
-    // Obtener todos los asientos relacionados de la misma orden
+    // PRIMERO: Obtener todos los asientos relacionados de la misma orden
+    // Esto debe hacerse ANTES de cambiar cualquier estado
     const asientosRelacionados = await AsientoContableRepository.findByOrdenCompraId(asiento.ordenCompraId);
     
     // Filtrar asientos pendientes o con error (para poder reintentar)
-    // Incluimos Error porque si estamos reintentando, necesitamos procesar todos los relacionados
     const asientosPendientes = asientosRelacionados.filter(
       a => a.estado === 'Pendiente' || a.estado === 'Error'
     );
 
+    // Validar ANTES de hacer cualquier cambio
     if (asientosPendientes.length < 2) {
       const estados = asientosRelacionados.map(a => `${a.id}(${a.estado})`).join(', ');
       return {
@@ -265,6 +253,26 @@ class ContabilidadService {
         success: false,
         message: `Un asiento contable debe tener al menos una línea DB y una línea CR. Tipos encontrados: [${tipos}]`,
       };
+    }
+
+    // AHORA SÍ: Obtener token de autenticación (usa cache si existe)
+    let token;
+    try {
+      token = await this.obtenerTokenContabilidad();
+    } catch (error) {
+      // Si falla la autenticación, marcar todos los asientos pendientes como error
+      for (const a of asientosPendientes) {
+        await a.update({ estado: 'Error' });
+      }
+      return {
+        success: false,
+        message: error.message || 'Error al autenticarse con el sistema de contabilidad',
+      };
+    }
+
+    // Marcar todos los asientos pendientes como "Enviado" antes de enviarlos
+    for (const a of asientosPendientes) {
+      await a.update({ estado: 'Enviado' });
     }
 
     const apiUrl = `${config.contabilidadApiUrl}/api/v1/accounting-entries`;
@@ -531,67 +539,6 @@ class ContabilidadService {
     }
   }
 
-  /**
-   * Sincroniza y compara asientos entre el sistema local y el externo
-   * @param {string} fechaDesde - Fecha desde para comparar
-   * @param {string} fechaHasta - Fecha hasta para comparar
-   * @returns {Promise<Object>} Objeto con comparación de asientos
-   */
-  async sincronizarAsientos(fechaDesde, fechaHasta) {
-    try {
-      // Obtener asientos locales
-      const asientosLocales = await this.getTransaccionesPendientes(fechaDesde, fechaHasta);
-      
-      // Obtener asientos externos
-      const asientosExternos = await this.obtenerAsientosExternos({
-        fechaDesde,
-        fechaHasta,
-      });
-
-      // Comparar y encontrar discrepancias
-      const discrepancias = [];
-      const asientosSincronizados = [];
-
-      // Mapear asientos externos por identificador único (si existe)
-      const externosMap = new Map();
-      asientosExternos.forEach((ext) => {
-        const key = `${ext.accountId}-${ext.entryDate}-${ext.amount}-${ext.movementType}`;
-        externosMap.set(key, ext);
-      });
-
-      // Comparar asientos locales con externos
-      asientosLocales.forEach((local) => {
-        const key = `${local.cuentaContable}-${local.fechaAsiento}-${local.montoAsiento}-${local.tipoMovimiento}`;
-        const externo = externosMap.get(key);
-        
-        if (externo) {
-          asientosSincronizados.push({
-            local,
-            externo,
-            sincronizado: true,
-          });
-        } else {
-          discrepancias.push({
-            local,
-            tipo: 'No encontrado en sistema externo',
-          });
-        }
-      });
-
-      return {
-        asientosLocales: asientosLocales.length,
-        asientosExternos: asientosExternos.length,
-        sincronizados: asientosSincronizados.length,
-        discrepancias: discrepancias.length,
-        detalles: {
-          sincronizados: asientosSincronizados,
-          discrepancias,
-        },
-      };
-    } catch (error) {
-      throw new Error(`Error al sincronizar asientos: ${error.message}`);
-    }
-  }
 }
 
 module.exports = new ContabilidadService();

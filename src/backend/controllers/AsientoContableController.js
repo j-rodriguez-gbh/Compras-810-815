@@ -119,26 +119,6 @@ class AsientoContableController {
     }
   }
 
-  async sincronizarAsientos(req, res, next) {
-    try {
-      const { fechaDesde, fechaHasta } = req.query;
-      
-      if (!fechaDesde || !fechaHasta) {
-        return res.status(400).json({
-          success: false,
-          message: 'Se requieren los parámetros fechaDesde y fechaHasta',
-        });
-      }
-
-      const resultado = await ContabilidadService.sincronizarAsientos(fechaDesde, fechaHasta);
-      res.json({
-        success: true,
-        data: resultado,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
 }
 
 module.exports = new AsientoContableController();

@@ -127,24 +127,4 @@ export const useAsientosExternos = (filters?: {
   }
 }
 
-export const useSincronizarAsientos = () => {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ fechaDesde, fechaHasta }: { fechaDesde: string; fechaHasta: string }) => {
-      const response = await api.get<ApiResponse<SincronizacionResultado>>(
-        `/asientos-contables/sincronizar?fechaDesde=${fechaDesde}&fechaHasta=${fechaHasta}`
-      )
-      return response.data.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['asientosContables'] })
-      queryClient.invalidateQueries({ queryKey: ['asientosExternos'] })
-      toast.success('Sincronización completada')
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Error al sincronizar asientos')
-    },
-  })
-}
 
