@@ -320,7 +320,7 @@ export default function ContabilidadPage() {
                             {asiento.description || 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {asiento.account?.id || asiento.accountId || 'N/A'}
+                            {asiento.account?.id || 'N/A'}
                             {asiento.account?.description && (
                               <span className="ml-2 text-xs text-gray-400">
                                 ({asiento.account.description})
