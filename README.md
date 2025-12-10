@@ -381,14 +381,46 @@ Para más detalles sobre cómo probar la integración, consulta **[GUIA_PRUEBAS_
 
 3. **O desde el dashboard de Vercel**:
    - Conecta tu repositorio de GitHub
-   - Selecciona el directorio `src/frontend`
-   - Framework: Vite
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
+   - **IMPORTANTE**: En "Root Directory", selecciona `src/frontend`
+   - Framework: Vite (se detecta automáticamente)
+   - Build Command: `npm run build` (o dejar vacío, Vercel lo detecta)
+   - Output Directory: `dist` (o dejar vacío, Vercel lo detecta)
+   - Install Command: `npm install` (o dejar vacío)
 
-4. **Configurar Variable de Entorno**:
-   - En el dashboard de Vercel, agrega:
-     - `VITE_API_URL`: URL de tu backend desplegado (ej: `https://tu-backend.railway.app`)
+4. **Configurar Variable de Entorno - URL del Backend**:
+   
+   **Pasos detallados:**
+   
+   1. En el dashboard de Vercel, selecciona tu proyecto
+   2. Ve a la pestaña **"Settings"** (Configuración)
+   3. En el menú lateral, haz clic en **"Environment Variables"** (Variables de Entorno)
+   4. Haz clic en **"Add New"** (Agregar Nueva)
+   5. Completa el formulario:
+      - **Key (Clave)**: `VITE_API_URL`
+      - **Value (Valor)**: La URL completa de tu backend desplegado
+        - Ejemplo para Railway: `https://tu-proyecto.railway.app`
+        - Ejemplo para Render: `https://tu-proyecto.onrender.com`
+        - **IMPORTANTE**: No incluyas `/api` al final, solo la URL base
+   6. Selecciona los **Environments** (Entornos) donde aplicará:
+      - ✅ Production (Producción)
+      - ✅ Preview (Vista Previa)
+      - ✅ Development (Desarrollo) - opcional
+   7. Haz clic en **"Save"** (Guardar)
+   
+   **Ejemplo de valores:**
+   ```
+   VITE_API_URL=https://compras-backend.railway.app
+   ```
+   
+   **Nota**: Después de agregar la variable, necesitas **redesplegar** tu aplicación para que los cambios surtan efecto. Puedes hacerlo desde la pestaña "Deployments" haciendo clic en los tres puntos (...) del último deployment y seleccionando "Redeploy".
+
+   📖 **Para una guía completa paso a paso, consulta [GUIA_DESPLIEGUE.md](./GUIA_DESPLIEGUE.md)**
+
+5. **Solución de Problemas - Error 404**:
+   - **Verifica el Root Directory**: Debe ser `src/frontend`, no la raíz del proyecto
+   - **Verifica que `vercel.json` existe**: Debe estar en `src/frontend/vercel.json`
+   - **Verifica el build**: Revisa los logs de build en Vercel para asegurar que se genera la carpeta `dist`
+   - **Limpia el caché**: En Vercel, Settings > Clear Build Cache y vuelve a desplegar
 
 ### Backend en Railway
 

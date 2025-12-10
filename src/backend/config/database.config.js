@@ -53,10 +53,13 @@ module.exports = {
     dialect: 'mssql',
     dialectOptions: {
       options: {
-        instanceName: process.env.DB_INSTANCE || 'SQLEXPRESS',
-        encrypt: false,
-        trustServerCertificate: true,
+        // Azure SQL no usa instanceName, se omite
+        // instanceName solo para SQL Server Express local
+        encrypt: true, // Azure SQL requiere encriptación
+        trustServerCertificate: false, // Usar certificados válidos en producción
         enableArithAbort: true,
+        connectTimeout: 60000,
+        requestTimeout: 60000,
       },
     },
     pool: {
