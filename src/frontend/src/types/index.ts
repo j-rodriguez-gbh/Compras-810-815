@@ -61,6 +61,50 @@ export interface OrdenCompra {
   updatedAt?: string
 }
 
+export interface Usuario {
+  id: number
+  username: string
+  email: string
+  nombre: string
+  rol: 'Administrador' | 'Usuario'
+  estado: 'Activo' | 'Inactivo'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+export interface RegisterRequest {
+  username: string
+  email: string
+  password: string
+  nombre: string
+}
+
+export interface AuthResponse {
+  token: string
+  usuario: Usuario
+}
+
+export interface AsientoContable {
+  id: number
+  identificadorAsiento: string
+  descripcion?: string
+  tipoInventarioId?: string
+  cuentaContable?: string
+  tipoMovimiento: 'DB' | 'CR'
+  fechaAsiento: string
+  montoAsiento: number
+  estado: 'Pendiente' | 'Enviado' | 'Confirmado' | 'Error'
+  ordenCompraId?: number
+  ordenCompra?: OrdenCompra
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface ApiResponse<T> {
   success: boolean
   data: T

@@ -3,6 +3,7 @@ const DepartamentoRepository = require('../repositories/DepartamentoRepository')
 const ProveedorRepository = require('../repositories/ProveedorRepository');
 const ArticuloRepository = require('../repositories/ArticuloRepository');
 const UnidadMedidaRepository = require('../repositories/UnidadMedidaRepository');
+const ContabilidadService = require('./ContabilidadService');
 const { isValidTransition, getNextStates } = require('../stateMachines/ordenCompraStateMachine');
 const { Op } = require('sequelize');
 
@@ -183,7 +184,19 @@ class OrdenCompraService {
     }
     
     // Actualizar el estado
-    return await OrdenCompraRepository.update(id, { estado: estadoNormalizado });
+    const ordenActualizada = await OrdenCompraRepository.update(id, { estado: estadoNormalizado });
+    
+    // Si se aprueba la orden, generar asientos contables automáticamente
+    if (estadoNormalizado === 'Aprobada') {
+      try {
+        await ContabilidadService.generarAsientosDesdeOrdenCompra(id);
+      } catch (error) {
+        // Log el error pero no fallar la actualización del estado
+        console.error(`Error al generar asientos contables para la orden ${id}:`, error.message);
+      }
+    }
+    
+    return ordenActualizada;
   }
 
   /**

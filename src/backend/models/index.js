@@ -1,5 +1,6 @@
 const sequelize = require('../config/database');
 
+const Usuario = require('./Usuario');
 const Departamento = require('./Departamento');
 const UnidadMedida = require('./UnidadMedida');
 const Proveedor = require('./Proveedor');
@@ -82,6 +83,7 @@ OrdenCompra.hasMany(AsientoContable, {
 
 module.exports = {
   sequelize,
+  Usuario,
   Departamento,
   UnidadMedida,
   Proveedor,

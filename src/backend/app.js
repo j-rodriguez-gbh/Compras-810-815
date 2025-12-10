@@ -6,11 +6,13 @@ const config = require('./config/environment');
 const errorHandler = require('./middleware/errorHandler');
 
 // Routes
+const authRouter = require('./routes/auth');
 const departamentosRouter = require('./routes/departamentos');
 const unidadesMedidaRouter = require('./routes/unidadesMedida');
 const proveedoresRouter = require('./routes/proveedores');
 const articulosRouter = require('./routes/articulos');
 const ordenesCompraRouter = require('./routes/ordenesCompra');
+const asientosContablesRouter = require('./routes/asientosContables');
 
 const app = express();
 
@@ -34,11 +36,13 @@ app.get('/api/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', authRouter);
 app.use('/api/departamentos', departamentosRouter);
 app.use('/api/unidades-medida', unidadesMedidaRouter);
 app.use('/api/proveedores', proveedoresRouter);
 app.use('/api/articulos', articulosRouter);
 app.use('/api/ordenes-compra', ordenesCompraRouter);
+app.use('/api/asientos-contables', asientosContablesRouter);
 
 // 404 handler
 app.use((req, res) => {

@@ -250,7 +250,10 @@ const validateOrdenCompra = [
   handleValidationErrors,
 ];
 
+const validate = handleValidationErrors;
+
 module.exports = {
+  validate,
   validateDepartamento: validateDepartamentoCreate,
   validateDepartamentoCreate,
   validateDepartamentoUpdate,
