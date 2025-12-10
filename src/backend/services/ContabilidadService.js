@@ -153,8 +153,9 @@ class ContabilidadService {
   async contabilizarAsiento(id) {
     const asiento = await this.getAsientoById(id);
 
-    if (asiento.estado !== 'Pendiente') {
-      throw new Error(`No se puede contabilizar un asiento en estado: ${asiento.estado}`);
+    // Permitir contabilizar asientos en estado Pendiente o Error (para reintentar)
+    if (asiento.estado !== 'Pendiente' && asiento.estado !== 'Error') {
+      throw new Error(`No se puede contabilizar un asiento en estado: ${asiento.estado}. Solo se pueden contabilizar asientos en estado Pendiente o Error.`);
     }
 
     if (!asiento.ordenCompraId) {
@@ -162,6 +163,14 @@ class ContabilidadService {
     }
 
     try {
+      // Si está en Error, volver a Pendiente antes de reintentar
+      if (asiento.estado === 'Error') {
+        await asiento.update({ estado: 'Pendiente' });
+        // Recargar el asiento para tener el estado actualizado
+        const asientoActualizado = await this.getAsientoById(id);
+        Object.assign(asiento, asientoActualizado);
+      }
+
       // Marcar como enviado antes de procesar
       await asiento.update({ estado: 'Enviado' });
 
@@ -198,7 +207,8 @@ class ContabilidadService {
 
     const resultados = [];
     for (const asiento of asientos) {
-      if (asiento.estado === 'Pendiente') {
+      // Permitir contabilizar asientos Pendientes o con Error (para reintentar)
+      if (asiento.estado === 'Pendiente' || asiento.estado === 'Error') {
         try {
           const resultado = await this.contabilizarAsiento(asiento.id);
           resultados.push(resultado);
@@ -231,31 +241,34 @@ class ContabilidadService {
     // Obtener todos los asientos relacionados de la misma orden
     const asientosRelacionados = await AsientoContableRepository.findByOrdenCompraId(asiento.ordenCompraId);
     
-    // Filtrar solo los asientos pendientes del mismo tipo (mismo tipoInventarioId)
-    const asientosDelMismoTipo = asientosRelacionados.filter(
-      a => a.tipoInventarioId === asiento.tipoInventarioId && a.estado === 'Pendiente'
+    // Filtrar asientos pendientes o con error (para poder reintentar)
+    // Incluimos Error porque si estamos reintentando, necesitamos procesar todos los relacionados
+    const asientosPendientes = asientosRelacionados.filter(
+      a => a.estado === 'Pendiente' || a.estado === 'Error'
     );
 
-    if (asientosDelMismoTipo.length < 2) {
+    if (asientosPendientes.length < 2) {
+      const estados = asientosRelacionados.map(a => `${a.id}(${a.estado})`).join(', ');
       return {
         success: false,
-        message: 'Un asiento contable debe tener al menos 2 líneas (1 DB y 1 CR)',
+        message: `Un asiento contable debe tener al menos 2 líneas (1 DB y 1 CR). Asientos encontrados: ${asientosRelacionados.length}, Pendientes: ${asientosPendientes.length}. Estados: [${estados}]`,
       };
     }
 
     // Verificar que haya al menos 1 DB y 1 CR
-    const tieneDB = asientosDelMismoTipo.some(a => a.tipoMovimiento === 'DB');
-    const tieneCR = asientosDelMismoTipo.some(a => a.tipoMovimiento === 'CR');
+    const tieneDB = asientosPendientes.some(a => a.tipoMovimiento === 'DB');
+    const tieneCR = asientosPendientes.some(a => a.tipoMovimiento === 'CR');
 
     if (!tieneDB || !tieneCR) {
+      const tipos = asientosPendientes.map(a => a.tipoMovimiento).join(', ');
       return {
         success: false,
-        message: 'Un asiento contable debe tener al menos una línea DB y una línea CR',
+        message: `Un asiento contable debe tener al menos una línea DB y una línea CR. Tipos encontrados: [${tipos}]`,
       };
     }
 
     const apiUrl = `${config.contabilidadApiUrl}/api/v1/accounting-entries`;
-    const descripcion = asientosDelMismoTipo[0].descripcion || `Compra orden ${asiento.ordenCompraId}`;
+    const descripcion = asientosPendientes[0].descripcion || `Compra orden ${asiento.ordenCompraId}`;
     const fechaAsiento = asiento.fechaAsiento || new Date().toISOString().split('T')[0];
 
     const resultados = [];
@@ -263,9 +276,10 @@ class ContabilidadService {
 
     // Enviar cada línea del asiento por separado según el formato del API
     // El tipoInventarioId corresponde al auxiliaryId (Id. Auxiliar: 7 = Compras)
-    const auxiliaryId = parseInt(asiento.tipoInventarioId) || 7; // Default a 7 (Compras) si no está definido
+    // Usar el tipoInventarioId del primer asiento pendiente, o default a 7
+    const auxiliaryId = parseInt(asientosPendientes[0].tipoInventarioId) || 7; // Default a 7 (Compras) si no está definido
     
-    for (const lineaAsiento of asientosDelMismoTipo) {
+    for (const lineaAsiento of asientosPendientes) {
       try {
         const accountId = parseInt(lineaAsiento.cuentaContable);
         const amount = parseFloat(lineaAsiento.montoAsiento);
@@ -412,6 +426,30 @@ class ContabilidadService {
     }
 
     return await AsientoContableRepository.findByCriterios(criterios);
+  }
+
+  async getTransaccionesPendientesYConError(fechaDesde, fechaHasta) {
+    const criterios = {};
+
+    if (fechaDesde) {
+      criterios.fechaDesde = fechaDesde;
+    }
+    if (fechaHasta) {
+      criterios.fechaHasta = fechaHasta;
+    }
+
+    // Obtener asientos pendientes y con error
+    const pendientes = await AsientoContableRepository.findByCriterios({
+      ...criterios,
+      estado: 'Pendiente',
+    });
+    
+    const conError = await AsientoContableRepository.findByCriterios({
+      ...criterios,
+      estado: 'Error',
+    });
+
+    return [...pendientes, ...conError];
   }
 
   /**

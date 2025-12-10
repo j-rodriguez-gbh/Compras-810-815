@@ -79,8 +79,17 @@ class AsientoContableController {
 
   async getTransaccionesPendientes(req, res, next) {
     try {
-      const { fechaDesde, fechaHasta } = req.query;
-      const transacciones = await ContabilidadService.getTransaccionesPendientes(fechaDesde, fechaHasta);
+      const { fechaDesde, fechaHasta, incluirErrores } = req.query;
+      
+      let transacciones;
+      if (incluirErrores === 'true') {
+        // Incluir asientos pendientes y con error para poder reintentarlos
+        transacciones = await ContabilidadService.getTransaccionesPendientesYConError(fechaDesde, fechaHasta);
+      } else {
+        // Solo asientos pendientes (comportamiento por defecto)
+        transacciones = await ContabilidadService.getTransaccionesPendientes(fechaDesde, fechaHasta);
+      }
+      
       res.json({
         success: true,
         data: transacciones,

@@ -164,18 +164,18 @@ export default function ContabilidadPage() {
             </div>
           </div>
 
-          {activeTab === 'pendientes' && (
+        {activeTab === 'pendientes' && (
             <>
               {isLoading ? (
-            <div className="text-center py-8">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-600">Cargando transacciones...</p>
-            </div>
-          ) : transacciones.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No hay transacciones pendientes para el rango de fechas seleccionado
-            </div>
-          ) : (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="mt-2 text-gray-600">Cargando transacciones...</p>
+                </div>
+              ) : transacciones.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No hay transacciones pendientes o con error para el rango de fechas seleccionado
+                </div>
+              ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -208,6 +208,9 @@ export default function ContabilidadPage() {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Tipo Movimiento
                       </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -237,20 +240,35 @@ export default function ContabilidadPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {formatCurrency(parseFloat(transaccion.montoAsiento.toString()))}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {transaccion.identificadorAsiento || 'null'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              transaccion.tipoMovimiento === 'DB'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {transaccion.tipoMovimiento}
-                          </span>
-                        </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {transaccion.identificadorAsiento || 'null'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            transaccion.tipoMovimiento === 'DB'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {transaccion.tipoMovimiento}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            transaccion.estado === 'Pendiente'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : transaccion.estado === 'Error'
+                              ? 'bg-red-100 text-red-800'
+                              : transaccion.estado === 'Confirmado'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {transaccion.estado}
+                        </span>
+                      </td>
                       </tr>
                     ))}
                   </tbody>

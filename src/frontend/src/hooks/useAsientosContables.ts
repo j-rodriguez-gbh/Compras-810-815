@@ -34,13 +34,14 @@ export const useAsientosContables = (filters?: {
   }
 }
 
-export const useTransaccionesPendientes = (fechaDesde?: string, fechaHasta?: string) => {
+export const useTransaccionesPendientes = (fechaDesde?: string, fechaHasta?: string, incluirErrores: boolean = true) => {
   const queryParams = new URLSearchParams()
   if (fechaDesde) queryParams.append('fechaDesde', fechaDesde)
   if (fechaHasta) queryParams.append('fechaHasta', fechaHasta)
+  if (incluirErrores) queryParams.append('incluirErrores', 'true')
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['transaccionesPendientes', fechaDesde, fechaHasta],
+    queryKey: ['transaccionesPendientes', fechaDesde, fechaHasta, incluirErrores],
     queryFn: async () => {
       const url = `/asientos-contables/pendientes${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
       const response = await api.get<ApiResponse<AsientoContable[]>>(url)
