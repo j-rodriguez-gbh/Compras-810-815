@@ -1,6 +1,15 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
+// Detectar si es Azure SQL (host contiene .database.windows.net)
+const isAzureSQL = process.env.DB_HOST && process.env.DB_HOST.includes('.database.windows.net');
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Configuración de encriptación: Azure SQL siempre requiere encriptación
+// En producción también usamos encriptación, en desarrollo local puede ser false
+const encrypt = isAzureSQL || isProduction;
+const trustServerCertificate = !isProduction && !isAzureSQL; // Solo true en desarrollo local
+
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
@@ -11,12 +20,14 @@ const sequelize = new Sequelize(
     dialect: 'mssql',
     dialectOptions: {
       options: {
-        // No usar instanceName cuando el puerto está configurado directamente
-        encrypt: false,
-        trustServerCertificate: true,
+        // Azure SQL requiere encriptación, producción también
+        encrypt: encrypt,
+        trustServerCertificate: trustServerCertificate,
         enableArithAbort: true,
         connectTimeout: 60000,
         requestTimeout: 60000,
+        // No usar instanceName para Azure SQL
+        // instanceName solo para SQL Server Express local
       },
     },
     pool: {
