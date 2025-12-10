@@ -13,7 +13,7 @@ export default function ContabilidadPage() {
     fechaHasta || undefined
   )
   const { asientos: asientosExternos, isLoading: isLoadingExternos, refetch: refetchExternos } = useAsientosExternos(
-    fechaDesde || undefined ? { fechaDesde, fechaHasta: fechaHasta || undefined } : undefined
+    activeTab === 'externos' ? { fechaDesde: fechaDesde || undefined, fechaHasta: fechaHasta || undefined } : undefined
   )
   const contabilizarMutation = useContabilizarAsiento()
   const sincronizarMutation = useSincronizarAsientos()
@@ -320,7 +320,12 @@ export default function ContabilidadPage() {
                             {asiento.description || 'N/A'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {asiento.accountId}
+                            {asiento.account?.id || asiento.accountId || 'N/A'}
+                            {asiento.account?.description && (
+                              <span className="ml-2 text-xs text-gray-400">
+                                ({asiento.account.description})
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {formatDate(asiento.entryDate)}

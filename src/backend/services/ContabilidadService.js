@@ -262,15 +262,35 @@ class ContabilidadService {
     let todosExitosos = true;
 
     // Enviar cada línea del asiento por separado según el formato del API
+    // El tipoInventarioId corresponde al auxiliaryId (Id. Auxiliar: 7 = Compras)
+    const auxiliaryId = parseInt(asiento.tipoInventarioId) || 7; // Default a 7 (Compras) si no está definido
+    
     for (const lineaAsiento of asientosDelMismoTipo) {
       try {
+        const accountId = parseInt(lineaAsiento.cuentaContable);
+        const amount = parseFloat(lineaAsiento.montoAsiento);
+        
+        // Validar que los valores sean válidos
+        if (isNaN(accountId) || accountId <= 0) {
+          throw new Error(`ID de cuenta inválido: ${lineaAsiento.cuentaContable}`);
+        }
+        if (isNaN(amount) || amount <= 0) {
+          throw new Error(`Monto inválido: ${lineaAsiento.montoAsiento}`);
+        }
+        if (isNaN(auxiliaryId) || auxiliaryId <= 0) {
+          throw new Error(`Auxiliary ID inválido: ${asiento.tipoInventarioId}`);
+        }
+
         const payload = {
           description: descripcion,
-          accountId: parseInt(lineaAsiento.cuentaContable),
+          accountId: accountId,
           movementType: lineaAsiento.tipoMovimiento,
-          amount: parseFloat(lineaAsiento.montoAsiento),
+          amount: amount,
           entryDate: fechaAsiento,
+          auxiliaryId: auxiliaryId, // Agregar auxiliaryId requerido por el API
         };
+
+        console.log('Enviando asiento al API de contabilidad:', JSON.stringify(payload, null, 2));
 
         const response = await axios.post(apiUrl, payload, {
           timeout: 15000,
@@ -279,11 +299,13 @@ class ContabilidadService {
             'Content-Type': 'application/json',
           },
         });
+        
+        console.log('Respuesta del API de contabilidad:', JSON.stringify(response.data, null, 2));
 
-        // Manejar diferentes formatos de respuesta
+        // Manejar diferentes formatos de respuesta del API
         let contabilidadId = null;
         if (response.data) {
-          // Formato 1: { id: 123, ... }
+          // Formato 1: { id: 123, ... } - respuesta directa
           if (response.data.id) {
             contabilidadId = response.data.id;
           }
@@ -291,9 +313,14 @@ class ContabilidadService {
           else if (response.data.data && response.data.data.id) {
             contabilidadId = response.data.data.id;
           }
-          // Formato 3: { isOk: true, data: { id: 123, ... } }
-          else if (response.data.isOk && response.data.data && response.data.data.id) {
-            contabilidadId = response.data.data.id;
+          // Formato 3: { isOk: true, data: { id: 123, ... } } - formato estándar del API
+          else if (response.data.isOk && response.data.data) {
+            if (response.data.data.id) {
+              contabilidadId = response.data.data.id;
+            } else if (Array.isArray(response.data.data) && response.data.data.length > 0) {
+              // Si data es un array, tomar el primer elemento
+              contabilidadId = response.data.data[0].id;
+            }
           }
         }
 
@@ -329,8 +356,18 @@ class ContabilidadService {
             errorMessage = 'Token de autenticación inválido. Intente nuevamente.';
             errorDetails = error.response.data;
           } else if (error.response.status === 400) {
-            errorMessage = error.response.data?.message || 'Datos inválidos en la solicitud';
-            errorDetails = error.response.data;
+            // Intentar obtener el mensaje de error más descriptivo
+            const errorData = error.response.data;
+            if (errorData?.message) {
+              errorMessage = errorData.message;
+            } else if (errorData?.error) {
+              errorMessage = errorData.error;
+            } else if (typeof errorData === 'string') {
+              errorMessage = errorData;
+            } else {
+              errorMessage = 'Datos inválidos en la solicitud. Verifique que todos los campos requeridos estén presentes.';
+            }
+            errorDetails = errorData;
           } else if (error.response.status === 500) {
             errorMessage = 'Error interno del servidor de contabilidad';
             errorDetails = error.response.data;

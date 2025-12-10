@@ -113,13 +113,28 @@ export interface ApiResponse<T> {
 
 export interface AsientoContableExterno {
   id: number
-  description?: string
-  accountId: number
+  createdAt: string
+  isActive: boolean
+  description: string
+  auxiliary: {
+    id: number
+    createdAt: string
+    isActive: boolean
+    name: string
+  }
+  account: {
+    id: number
+    createdAt: string
+    isActive: boolean
+    description: string
+    allowsMovement: string
+    level: number
+    balance: number
+  }
   movementType: 'DB' | 'CR'
-  amount: number
   entryDate: string
-  createdAt?: string
-  updatedAt?: string
+  amount: number
+  transactionStatus: string
 }
 
 export interface SincronizacionResultado {
