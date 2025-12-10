@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useOrdenesCompra, useCreateOrdenCompra, useUpdateOrdenCompra, useDeleteOrdenCompra, useCambiarEstado, useEstadosPosibles } from '../../hooks/useOrdenesCompra'
+import { useOrdenesCompra, useCreateOrdenCompra, useUpdateOrdenCompra, useDeleteOrdenCompra, useCambiarEstado } from '../../hooks/useOrdenesCompra'
 import { useDepartamentos } from '../../hooks/useDepartamentos'
 import { useProveedores } from '../../hooks/useProveedores'
 import { useArticulos } from '../../hooks/useArticulos'
@@ -7,7 +7,7 @@ import Modal from '../../components/common/Modal'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import OrdenDetallesModal from '../../components/common/OrdenDetallesModal'
 import { useForm, useFieldArray } from 'react-hook-form'
-import { OrdenCompra, OrdenCompraDetalle } from '../../types'
+import { OrdenCompra } from '../../types'
 import toast from 'react-hot-toast'
 import { AxiosError } from 'axios'
 import { getNextStates, getEstadoLabel } from '../../stateMachines/ordenCompraStateMachine'
@@ -46,7 +46,7 @@ export default function OrdenesCompraPage() {
   })
   
   // Observar cambios en los detalles para actualizar la unidad de medida automáticamente
-  const detalles = watch('detalles')
+  // const detalles = watch('detalles') // No se usa actualmente
   
   // Función para actualizar la unidad de medida cuando se selecciona un artículo
   const handleArticuloChange = (index: number, articuloId: number) => {
@@ -66,9 +66,9 @@ export default function OrdenesCompraPage() {
         toast.success('Orden de compra creada exitosamente')
       }
       setIsModalOpen(false)
-      const defaultValues = {
+      const defaultValues: Omit<OrdenCompra, 'id' | 'numeroOrden'> = {
         fechaOrden: new Date().toISOString().split('T')[0],
-        estado: 'Pendiente',
+        estado: 'Pendiente' as const,
         departamentoId: 0,
         proveedorId: 0,
         detalles: [{ articuloId: 0, cantidad: 0, unidadMedidaId: 0, costoUnitario: 0 }],
@@ -114,9 +114,9 @@ export default function OrdenesCompraPage() {
 
   const handleNew = () => {
     setEditingOrden(null)
-    const defaultValues = {
+    const defaultValues: Omit<OrdenCompra, 'id' | 'numeroOrden'> = {
       fechaOrden: new Date().toISOString().split('T')[0],
-      estado: 'Pendiente',
+      estado: 'Pendiente' as const,
       departamentoId: 0,
       proveedorId: 0,
       detalles: [{ articuloId: 0, cantidad: 0, unidadMedidaId: 0, costoUnitario: 0 }],
@@ -143,9 +143,9 @@ export default function OrdenesCompraPage() {
 
   useEffect(() => {
     if (isModalOpen && !editingOrden) {
-      const defaultValues = {
+      const defaultValues: Omit<OrdenCompra, 'id' | 'numeroOrden'> = {
         fechaOrden: new Date().toISOString().split('T')[0],
-        estado: 'Pendiente',
+        estado: 'Pendiente' as const,
         departamentoId: 0,
         proveedorId: 0,
         detalles: [{ articuloId: 0, cantidad: 0, unidadMedidaId: 0, costoUnitario: 0 }],
@@ -249,9 +249,9 @@ export default function OrdenesCompraPage() {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false)
-          const defaultValues = {
+          const defaultValues: Omit<OrdenCompra, 'id' | 'numeroOrden'> = {
             fechaOrden: new Date().toISOString().split('T')[0],
-            estado: 'Pendiente',
+            estado: 'Pendiente' as const,
             departamentoId: 0,
             proveedorId: 0,
             detalles: [{ articuloId: 0, cantidad: 0, unidadMedidaId: 0, costoUnitario: 0 }],
@@ -412,9 +412,9 @@ export default function OrdenesCompraPage() {
               type="button"
               onClick={() => {
                 setIsModalOpen(false)
-                const defaultValues = {
+                const defaultValues: Omit<OrdenCompra, 'id' | 'numeroOrden'> = {
                   fechaOrden: new Date().toISOString().split('T')[0],
-                  estado: 'Pendiente',
+                  estado: 'Pendiente' as const,
                   departamentoId: 0,
                   proveedorId: 0,
                   detalles: [{ articuloId: 0, cantidad: 0, unidadMedidaId: 0, costoUnitario: 0 }],

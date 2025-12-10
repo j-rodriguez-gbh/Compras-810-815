@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useTransaccionesPendientes, useContabilizarAsiento } from '../../hooks/useAsientosContables'
-import { AsientoContable } from '../../types'
 import toast from 'react-hot-toast'
 
 export default function ContabilidadPage() {
