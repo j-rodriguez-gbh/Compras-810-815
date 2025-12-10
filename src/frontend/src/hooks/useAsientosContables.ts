@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
-import { AsientoContable, ApiResponse, AsientoContableExterno, SincronizacionResultado } from '../types'
+import { AsientoContable, ApiResponse, AsientoContableExterno } from '../types'
 import toast from 'react-hot-toast'
 
 export const useAsientosContables = (filters?: {
