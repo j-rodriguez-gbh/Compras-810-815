@@ -1,7 +1,34 @@
 import axios, { AxiosError } from 'axios'
 
+// Normalizar la URL del API
+const getApiBaseURL = () => {
+  const apiUrl = import.meta.env.VITE_API_URL
+  
+  if (!apiUrl) {
+    // En desarrollo, usar proxy relativo (ya incluye /api)
+    return '/api'
+  }
+  
+  // Normalizar la URL del backend
+  let baseUrl = apiUrl
+  
+  // Si no tiene protocolo, agregar https://
+  if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    baseUrl = `https://${baseUrl}`
+  }
+  
+  // Asegurar que termine con /api (el backend espera rutas con prefijo /api)
+  if (!baseUrl.endsWith('/api')) {
+    // Remover trailing slash si existe
+    baseUrl = baseUrl.replace(/\/$/, '')
+    baseUrl = `${baseUrl}/api`
+  }
+  
+  return baseUrl
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: getApiBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },
