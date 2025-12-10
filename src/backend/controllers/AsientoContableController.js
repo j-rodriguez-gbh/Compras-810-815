@@ -89,6 +89,47 @@ class AsientoContableController {
       next(error);
     }
   }
+
+  async getAsientosExternos(req, res, next) {
+    try {
+      const { fechaDesde, fechaHasta, accountId, movementType } = req.query;
+      
+      const filters = {};
+      if (fechaDesde) filters.fechaDesde = fechaDesde;
+      if (fechaHasta) filters.fechaHasta = fechaHasta;
+      if (accountId) filters.accountId = accountId;
+      if (movementType) filters.movementType = movementType;
+
+      const asientos = await ContabilidadService.obtenerAsientosExternos(filters);
+      res.json({
+        success: true,
+        data: asientos,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async sincronizarAsientos(req, res, next) {
+    try {
+      const { fechaDesde, fechaHasta } = req.query;
+      
+      if (!fechaDesde || !fechaHasta) {
+        return res.status(400).json({
+          success: false,
+          message: 'Se requieren los parámetros fechaDesde y fechaHasta',
+        });
+      }
+
+      const resultado = await ContabilidadService.sincronizarAsientos(fechaDesde, fechaHasta);
+      res.json({
+        success: true,
+        data: resultado,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AsientoContableController();

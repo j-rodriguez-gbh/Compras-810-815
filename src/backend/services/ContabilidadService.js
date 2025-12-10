@@ -28,8 +28,28 @@ class ContabilidadService {
         }
       );
 
+      // Manejar diferentes formatos de respuesta
+      let token = null;
+      
+      // Formato 1: { isOk: true, data: { token: "..." } }
       if (response.data && response.data.isOk && response.data.data && response.data.data.token) {
-        contabilidadToken = response.data.data.token;
+        token = response.data.data.token;
+      }
+      // Formato 2: { token: "..." }
+      else if (response.data && response.data.token) {
+        token = response.data.token;
+      }
+      // Formato 3: Respuesta directa con token
+      else if (typeof response.data === 'string' && response.data.startsWith('eyJ')) {
+        token = response.data;
+      }
+      // Formato 4: { data: { token: "..." } }
+      else if (response.data && response.data.data && response.data.data.token) {
+        token = response.data.data.token;
+      }
+
+      if (token) {
+        contabilidadToken = token;
         return contabilidadToken;
       } else {
         throw new Error('No se recibió un token válido del sistema de contabilidad');
@@ -260,11 +280,28 @@ class ContabilidadService {
           },
         });
 
-        if (response.data && response.data.id) {
+        // Manejar diferentes formatos de respuesta
+        let contabilidadId = null;
+        if (response.data) {
+          // Formato 1: { id: 123, ... }
+          if (response.data.id) {
+            contabilidadId = response.data.id;
+          }
+          // Formato 2: { data: { id: 123, ... } }
+          else if (response.data.data && response.data.data.id) {
+            contabilidadId = response.data.data.id;
+          }
+          // Formato 3: { isOk: true, data: { id: 123, ... } }
+          else if (response.data.isOk && response.data.data && response.data.data.id) {
+            contabilidadId = response.data.data.id;
+          }
+        }
+
+        if (contabilidadId) {
           resultados.push({
             success: true,
             asientoId: lineaAsiento.id,
-            contabilidadId: response.data.id,
+            contabilidadId: contabilidadId,
             data: response.data,
           });
           await lineaAsiento.update({ estado: 'Confirmado' });
@@ -274,7 +311,8 @@ class ContabilidadService {
           resultados.push({
             success: false,
             asientoId: lineaAsiento.id,
-            message: 'Respuesta inválida del sistema de contabilidad',
+            message: 'Respuesta inválida del sistema de contabilidad: no se recibió un ID válido',
+            responseData: response.data,
           });
         }
       } catch (error) {
@@ -282,13 +320,23 @@ class ContabilidadService {
         await lineaAsiento.update({ estado: 'Error' });
 
         let errorMessage = 'Error desconocido al enviar asiento';
+        let errorDetails = null;
+        
         if (error.response) {
           if (error.response.status === 401) {
-            // Token inválido, limpiar cache y reintentar
+            // Token inválido, limpiar cache
             contabilidadToken = null;
             errorMessage = 'Token de autenticación inválido. Intente nuevamente.';
+            errorDetails = error.response.data;
+          } else if (error.response.status === 400) {
+            errorMessage = error.response.data?.message || 'Datos inválidos en la solicitud';
+            errorDetails = error.response.data;
+          } else if (error.response.status === 500) {
+            errorMessage = 'Error interno del servidor de contabilidad';
+            errorDetails = error.response.data;
           } else {
             errorMessage = error.response.data?.message || `Error ${error.response.status}: ${error.message}`;
+            errorDetails = error.response.data;
           }
         } else if (error.request) {
           errorMessage = 'No se pudo conectar con el sistema de contabilidad';
@@ -300,6 +348,7 @@ class ContabilidadService {
           success: false,
           asientoId: lineaAsiento.id,
           message: errorMessage,
+          errorDetails,
         });
       }
     }
@@ -326,6 +375,147 @@ class ContabilidadService {
     }
 
     return await AsientoContableRepository.findByCriterios(criterios);
+  }
+
+  /**
+   * Obtiene asientos contables del sistema externo
+   * @param {Object} filters - Filtros opcionales para la consulta
+   * @param {string} filters.fechaDesde - Fecha desde (formato YYYY-MM-DD)
+   * @param {string} filters.fechaHasta - Fecha hasta (formato YYYY-MM-DD)
+   * @param {number} filters.accountId - ID de cuenta contable
+   * @param {string} filters.movementType - Tipo de movimiento (DB/CR)
+   * @returns {Promise<Array>} Array de asientos contables del sistema externo
+   */
+  async obtenerAsientosExternos(filters = {}) {
+    let token;
+    try {
+      token = await this.obtenerTokenContabilidad();
+    } catch (error) {
+      throw new Error(`Error al autenticarse con el sistema de contabilidad: ${error.message}`);
+    }
+
+    try {
+      const apiUrl = `${config.contabilidadApiUrl}/api/v1/accounting-entries`;
+      const params = {};
+
+      // Agregar filtros opcionales
+      if (filters.fechaDesde) {
+        params.entryDateFrom = filters.fechaDesde;
+      }
+      if (filters.fechaHasta) {
+        params.entryDateTo = filters.fechaHasta;
+      }
+      if (filters.accountId) {
+        params.accountId = parseInt(filters.accountId);
+      }
+      if (filters.movementType) {
+        params.movementType = filters.movementType;
+      }
+
+      const response = await axios.get(apiUrl, {
+        params,
+        timeout: 15000,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // Manejar diferentes formatos de respuesta
+      let asientos = [];
+      
+      if (Array.isArray(response.data)) {
+        asientos = response.data;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        asientos = response.data.data;
+      } else if (response.data && response.data.isOk && Array.isArray(response.data.data)) {
+        asientos = response.data.data;
+      } else if (response.data && response.data.entries) {
+        asientos = response.data.entries;
+      } else {
+        throw new Error('Formato de respuesta inesperado del sistema de contabilidad');
+      }
+
+      return asientos;
+    } catch (error) {
+      if (error.response) {
+        if (error.response.status === 401) {
+          // Token inválido, limpiar cache y reintentar
+          contabilidadToken = null;
+          throw new Error('Token de autenticación inválido. Intente nuevamente.');
+        } else {
+          throw new Error(
+            `Error al obtener asientos del sistema de contabilidad: ${error.response.data?.message || error.message}`
+          );
+        }
+      } else if (error.request) {
+        throw new Error('No se pudo conectar con el sistema de contabilidad');
+      } else {
+        throw new Error(`Error al obtener asientos externos: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Sincroniza y compara asientos entre el sistema local y el externo
+   * @param {string} fechaDesde - Fecha desde para comparar
+   * @param {string} fechaHasta - Fecha hasta para comparar
+   * @returns {Promise<Object>} Objeto con comparación de asientos
+   */
+  async sincronizarAsientos(fechaDesde, fechaHasta) {
+    try {
+      // Obtener asientos locales
+      const asientosLocales = await this.getTransaccionesPendientes(fechaDesde, fechaHasta);
+      
+      // Obtener asientos externos
+      const asientosExternos = await this.obtenerAsientosExternos({
+        fechaDesde,
+        fechaHasta,
+      });
+
+      // Comparar y encontrar discrepancias
+      const discrepancias = [];
+      const asientosSincronizados = [];
+
+      // Mapear asientos externos por identificador único (si existe)
+      const externosMap = new Map();
+      asientosExternos.forEach((ext) => {
+        const key = `${ext.accountId}-${ext.entryDate}-${ext.amount}-${ext.movementType}`;
+        externosMap.set(key, ext);
+      });
+
+      // Comparar asientos locales con externos
+      asientosLocales.forEach((local) => {
+        const key = `${local.cuentaContable}-${local.fechaAsiento}-${local.montoAsiento}-${local.tipoMovimiento}`;
+        const externo = externosMap.get(key);
+        
+        if (externo) {
+          asientosSincronizados.push({
+            local,
+            externo,
+            sincronizado: true,
+          });
+        } else {
+          discrepancias.push({
+            local,
+            tipo: 'No encontrado en sistema externo',
+          });
+        }
+      });
+
+      return {
+        asientosLocales: asientosLocales.length,
+        asientosExternos: asientosExternos.length,
+        sincronizados: asientosSincronizados.length,
+        discrepancias: discrepancias.length,
+        detalles: {
+          sincronizados: asientosSincronizados,
+          discrepancias,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Error al sincronizar asientos: ${error.message}`);
+    }
   }
 }
 

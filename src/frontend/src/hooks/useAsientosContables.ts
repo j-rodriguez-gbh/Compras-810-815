@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
-import { AsientoContable, ApiResponse } from '../types'
+import { AsientoContable, ApiResponse, AsientoContableExterno, SincronizacionResultado } from '../types'
 import toast from 'react-hot-toast'
 
 export const useAsientosContables = (filters?: {
@@ -92,6 +92,57 @@ export const useGenerarAsientosDesdeOrden = () => {
     },
     onError: (error: any) => {
       toast.error(error.message || 'Error al generar asientos contables')
+    },
+  })
+}
+
+export const useAsientosExternos = (filters?: {
+  fechaDesde?: string
+  fechaHasta?: string
+  accountId?: number
+  movementType?: 'DB' | 'CR'
+}) => {
+  const queryParams = new URLSearchParams()
+  if (filters?.fechaDesde) queryParams.append('fechaDesde', filters.fechaDesde)
+  if (filters?.fechaHasta) queryParams.append('fechaHasta', filters.fechaHasta)
+  if (filters?.accountId) queryParams.append('accountId', filters.accountId.toString())
+  if (filters?.movementType) queryParams.append('movementType', filters.movementType)
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['asientosExternos', filters],
+    queryFn: async () => {
+      const url = `/asientos-contables/externos${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+      const response = await api.get<ApiResponse<AsientoContableExterno[]>>(url)
+      return response.data.data
+    },
+    retry: 2,
+  })
+
+  return {
+    asientos: data || [],
+    isLoading,
+    error,
+    refetch,
+  }
+}
+
+export const useSincronizarAsientos = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ fechaDesde, fechaHasta }: { fechaDesde: string; fechaHasta: string }) => {
+      const response = await api.get<ApiResponse<SincronizacionResultado>>(
+        `/asientos-contables/sincronizar?fechaDesde=${fechaDesde}&fechaHasta=${fechaHasta}`
+      )
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['asientosContables'] })
+      queryClient.invalidateQueries({ queryKey: ['asientosExternos'] })
+      toast.success('Sincronización completada')
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Error al sincronizar asientos')
     },
   })
 }

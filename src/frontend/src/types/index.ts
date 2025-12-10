@@ -111,3 +111,32 @@ export interface ApiResponse<T> {
   message?: string
 }
 
+export interface AsientoContableExterno {
+  id: number
+  description?: string
+  accountId: number
+  movementType: 'DB' | 'CR'
+  amount: number
+  entryDate: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface SincronizacionResultado {
+  asientosLocales: number
+  asientosExternos: number
+  sincronizados: number
+  discrepancias: number
+  detalles: {
+    sincronizados: Array<{
+      local: AsientoContable
+      externo: AsientoContableExterno
+      sincronizado: boolean
+    }>
+    discrepancias: Array<{
+      local: AsientoContable
+      tipo: string
+    }>
+  }
+}
+

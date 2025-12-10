@@ -5,6 +5,8 @@ const { authenticate } = require('../middleware/auth');
 
 router.get('/', authenticate, AsientoContableController.getAll.bind(AsientoContableController));
 router.get('/pendientes', authenticate, AsientoContableController.getTransaccionesPendientes.bind(AsientoContableController));
+router.get('/externos', authenticate, AsientoContableController.getAsientosExternos.bind(AsientoContableController));
+router.get('/sincronizar', authenticate, AsientoContableController.sincronizarAsientos.bind(AsientoContableController));
 router.get('/:id', authenticate, AsientoContableController.getById.bind(AsientoContableController));
 router.post('/generar/:ordenCompraId', authenticate, AsientoContableController.generarDesdeOrdenCompra.bind(AsientoContableController));
 router.post('/:id/contabilizar', authenticate, AsientoContableController.contabilizar.bind(AsientoContableController));
